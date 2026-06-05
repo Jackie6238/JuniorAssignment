@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PumpTelemetry.Core", "src\PumpTelemetry.Core\PumpTelemetry.Core.csproj", "{7F03EF53-6C75-4A8A-A857-15901C54E6B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PumpTelemetry.Monitor", "src\PumpTelemetry.Monitor\PumpTelemetry.Monitor.csproj", "{E56965B7-F7EA-407C-8E9E-72F3C2CA489D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PumpTelemetry.Tests", "tests\PumpTelemetry.Tests\PumpTelemetry.Tests.csproj", "{2F97867B-A22A-47F8-8B73-0226F4581867}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7F03EF53-6C75-4A8A-A857-15901C54E6B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7F03EF53-6C75-4A8A-A857-15901C54E6B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7F03EF53-6C75-4A8A-A857-15901C54E6B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7F03EF53-6C75-4A8A-A857-15901C54E6B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E56965B7-F7EA-407C-8E9E-72F3C2CA489D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E56965B7-F7EA-407C-8E9E-72F3C2CA489D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E56965B7-F7EA-407C-8E9E-72F3C2CA489D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E56965B7-F7EA-407C-8E9E-72F3C2CA489D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2F97867B-A22A-47F8-8B73-0226F4581867}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F97867B-A22A-47F8-8B73-0226F4581867}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F97867B-A22A-47F8-8B73-0226F4581867}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F97867B-A22A-47F8-8B73-0226F4581867}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
