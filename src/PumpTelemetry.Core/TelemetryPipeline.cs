@@ -74,13 +74,7 @@ public sealed class TelemetryPipeline : IAsyncDisposable
             _stopRegistration.Dispose();
         }
 
-        try
-        {
-            await Task.WhenAll(_runningTasks).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
+        await Task.WhenAll(_runningTasks).ConfigureAwait(false);
     }
 
     private void RequestStop()
@@ -91,9 +85,18 @@ public sealed class TelemetryPipeline : IAsyncDisposable
 
     private async Task ProcessReadingsAsync()
     {
-        await foreach (var reading in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
+        try
         {
-            await ProcessReadingAsync(reading).ConfigureAwait(false);
+            await foreach (var reading in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
+            {
+                await ProcessReadingAsync(reading).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+            // A failed sink must release producers blocked on the bounded channel.
+            RequestStop();
+            throw;
         }
     }
 
@@ -127,7 +130,8 @@ public sealed class TelemetryPipeline : IAsyncDisposable
                 reading.Timestamp,
                 $"Pressure {reading.Pressure:F1} exceeded threshold {_options.PressureThreshold:F1}.",
                 reading,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                _options.PressureThreshold).ConfigureAwait(false);
         }
 
         if (previousSequence.HasValue && reading.SequenceNumber <= previousSequence.Value)
@@ -165,17 +169,28 @@ public sealed class TelemetryPipeline : IAsyncDisposable
                 now,
                 $"Device has been silent since {lastSeen:O}.",
                 null,
-                cancellationToken).ConfigureAwait(false);
+                cancellationToken,
+                _options.SilentTimeout.TotalSeconds).ConfigureAwait(false);
         }
     }
 
     private async Task MonitorSilentDevicesAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(_options.SilentCheckInterval);
-
-        while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+        try
         {
-            await CheckSilentDevicesAsync(DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+            using var timer = new PeriodicTimer(_options.SilentCheckInterval);
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            {
+                await CheckSilentDevicesAsync(DateTimeOffset.UtcNow, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            RequestStop();
+            throw;
         }
     }
 
@@ -185,15 +200,22 @@ public sealed class TelemetryPipeline : IAsyncDisposable
         DateTimeOffset timestamp,
         string message,
         TelemetryReading? reading,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        double? threshold = null)
     {
-        return _alertSink(new TelemetryAlert(type, deviceId, timestamp, message, reading), cancellationToken);
+        return _alertSink(new TelemetryAlert(type, deviceId, timestamp, message, reading, threshold), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
     {
-        await StopAsync().ConfigureAwait(false);
-        _monitorCts.Dispose();
+        try
+        {
+            await StopAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _monitorCts.Dispose();
+        }
     }
 
     private sealed class DeviceState

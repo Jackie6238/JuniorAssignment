@@ -110,6 +110,79 @@ public sealed class TelemetryPipelineTests
         await pipeline.StopAsync();
     }
 
+    [Fact]
+    public async Task FailedReadingSinkUnblocksProducers_AndReportsFailureOnStop()
+    {
+        var pipeline = new TelemetryPipeline(new TelemetryPipelineOptions { QueueCapacity = 1 },
+            (_, _) => ValueTask.FromException(new IOException("disk full")));
+        pipeline.Start();
+        var producer = Task.Run(async () =>
+        {
+            for (var i = 1; i <= 100; i++)
+            {
+                await pipeline.SubmitAsync(Reading(pressure: 125, sequenceNumber: i));
+            }
+        });
+        await Assert.ThrowsAsync<System.Threading.Channels.ChannelClosedException>(
+            () => producer.WaitAsync(TimeSpan.FromSeconds(5)));
+        var failure = await Assert.ThrowsAsync<IOException>(() => pipeline.StopAsync());
+        Assert.Equal("disk full", failure.Message);
+        await Assert.ThrowsAsync<IOException>(async () => await pipeline.DisposeAsync());
+    }
+
+    [Fact]
+    public async Task FailedSilenceSinkStopsPipeline_AndReportsFailureOnStop()
+    {
+        var reachedSink = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pipeline = new TelemetryPipeline(new TelemetryPipelineOptions
+        {
+            SilentTimeout = TimeSpan.FromMilliseconds(1),
+            SilentCheckInterval = TimeSpan.FromMilliseconds(10)
+        }, (_, _) =>
+        {
+            reachedSink.SetResult();
+            return ValueTask.FromException(new IOException("cannot save silence"));
+        });
+        await pipeline.ProcessReadingAsync(Reading(timestamp: DateTimeOffset.UtcNow.AddSeconds(-1)));
+        pipeline.Start();
+        await reachedSink.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var failure = await Assert.ThrowsAsync<IOException>(() => pipeline.StopAsync());
+        Assert.Equal("cannot save silence", failure.Message);
+        Assert.False(pipeline.TrySubmit(Reading()));
+        await Assert.ThrowsAsync<IOException>(async () => await pipeline.DisposeAsync());
+    }
+
+    [Fact]
+    public async Task PressureAtThresholdDoesNotAlert_AndSilenceResetsAfterNewReading()
+    {
+        var alerts = new List<TelemetryAlert>();
+        await using var pipeline = CreatePipeline(alerts);
+        var now = DateTimeOffset.UtcNow;
+        await pipeline.ProcessReadingAsync(Reading(timestamp: now, pressure: 120));
+        await pipeline.CheckSilentDevicesAsync(now.AddSeconds(5));
+        Assert.Empty(alerts);
+        await pipeline.CheckSilentDevicesAsync(now.AddSeconds(6));
+        await pipeline.CheckSilentDevicesAsync(now.AddSeconds(7));
+        Assert.Single(alerts);
+        await pipeline.ProcessReadingAsync(Reading(timestamp: now.AddSeconds(8), sequenceNumber: 2));
+        await pipeline.CheckSilentDevicesAsync(now.AddSeconds(14));
+        Assert.Equal(2, alerts.Count);
+        Assert.All(alerts, a => Assert.Equal(TelemetryAlertType.DeviceSilent, a.Type));
+    }
+
+    [Fact]
+    public async Task DuplicateAndBackwardSequencesDoNotLowerSequenceHighWaterMark()
+    {
+        var alerts = new List<TelemetryAlert>();
+        await using var pipeline = CreatePipeline(alerts);
+        foreach (var sequence in new long[] { 10, 10, 8, 9, 11 })
+        {
+            await pipeline.ProcessReadingAsync(Reading(sequenceNumber: sequence));
+        }
+        Assert.Equal(3, alerts.Count);
+        Assert.All(alerts, a => Assert.Contains("after 10", a.Message));
+    }
+
     private static TelemetryPipeline CreatePipeline(
         ICollection<TelemetryAlert> alerts,
         TelemetryPipelineOptions? options = null)

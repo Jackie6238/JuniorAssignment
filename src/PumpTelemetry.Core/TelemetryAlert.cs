@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PumpTelemetry.Core;
 
 public enum TelemetryAlertType
@@ -8,8 +10,9 @@ public enum TelemetryAlertType
 }
 
 public sealed record TelemetryAlert(
-    TelemetryAlertType Type,
-    string DeviceId,
-    DateTimeOffset Timestamp,
-    string Message,
-    TelemetryReading? Reading = null);
+    [property: JsonRequired] TelemetryAlertType Type,
+    [property: JsonRequired] string DeviceId,
+    [property: JsonRequired] DateTimeOffset Timestamp,
+    [property: JsonRequired] string Message,
+    TelemetryReading? Reading = null,
+    double? Threshold = null);

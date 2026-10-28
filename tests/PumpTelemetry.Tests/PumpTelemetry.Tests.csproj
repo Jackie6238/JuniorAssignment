@@ -13,5 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\PumpTelemetry.Core\PumpTelemetry.Core.csproj" />
+    <ProjectReference Include="..\..\src\PumpTelemetry.Monitor\PumpTelemetry.Monitor.csproj" />
   </ItemGroup>
 </Project>

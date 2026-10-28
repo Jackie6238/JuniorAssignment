@@ -90,3 +90,8 @@ src/**/[Bb]in/
 src/**/[Oo]bj/
 tests/**/[Bb]in/
 tests/**/[Oo]bj/
+
+# Local development tools and generated history
+.local/
+alert-history.json
+alert-history.json.lock
